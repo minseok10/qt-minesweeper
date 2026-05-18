@@ -20,44 +20,50 @@ MyButton::MyButton(QWidget *parent):QPushButton(parent){
 MyButton::~MyButton()=default;
 
 void MyButton::mousePressEvent(QMouseEvent *e){
- if(e->button() == Qt::RightButton){
- emit rightClick();
- return;
- }
- QPushButton::mousePressEvent(e);
+    if(e->button() == Qt::RightButton){
+        emit rightClick();
+        return;
+    }
+    QPushButton::mousePressEvent(e);
 }
 
 void MyButton::rclick(){
-    if(!winlose){
+    if(winlose)
+        return;
+
     if(!opened){
         if(flagon){
             setStyleSheet(boxStyle("rgb(255,179,0)"));
-            flagon=0;
+            flagon=false;
             ++flags;
         }
         else{
             if(flags <= 0)
                 return;
             setStyleSheet(boxStyle("rgb(200,1,80)"));
-            flagon=1;
+            flagon=true;
             --flags;
         }
     }
     emit frefresh();
-    }
 }
 
 
 void MyButton::lclick(){
-    if(!winlose){
-        if(!opened){
-            if(flagon)
-                return;
-            if(opencnt == 0)
-                emit firstClick(cx,cy);
-            if(type==-1) emit lost(); //game lose
-            else open();
-        }
+    if(winlose || opened || flagon)
+        return;
+
+    if(opencnt == 0)
+        emit firstClick(cx,cy);
+    if(type==-1) emit lost(); //game lose
+    else open();
+}
+
+void MyButton::restoreFlag()
+{
+    if(flagon){
+        flagon=false;
+        ++flags;
     }
 }
 
@@ -65,44 +71,35 @@ void MyButton::open(){
     if(opened){
         if(winlose==1)
             setStyleSheet(boxStyle("cyan")); //for final win
+        return;
     }
-    else{
-        if(type==0){
-            setStyleSheet(boxStyle("azure"));
-            setText(QString(" "));
-            opened=1;
-            opencnt++;
-            if(flagon){
-            flagon=0;
-            ++flags;
-            }
-            emit frefresh(); //refresh status
-            emit opensignal(cx,cy); //it is opened
 
-        } else if(type==-1){ //bomb present
-            if(winlose==1)
-                setStyleSheet(boxStyle("pink")); //final winning
-            else
+    if(type==0){
+        setStyleSheet(boxStyle("azure"));
+        setText(QString(" "));
+        opened=true;
+        opencnt++;
+        restoreFlag();
+        emit frefresh(); //refresh status
+        emit opensignal(cx,cy); //it is opened
+
+    } else if(type==-1){ //bomb present
+        if(winlose==1)
+            setStyleSheet(boxStyle("pink")); //final winning
+        else
             setStyleSheet(boxStyle("red"));
 
-            setText(label);
-            opened=1;
-            if(flagon){ //restore flags if flagged
-            flagon=0;
-            ++flags;
-            }
-        } else{
-            setText(label);
-            setStyleSheet(boxStyle("wheat"));
-            opened=1;
-            opencnt++;
-            if(flagon){ //restore flags if flagged
-            flagon=0;
-            ++flags;
-            }
-            emit frefresh(); //refresh status
+        setText(label);
+        opened=true;
+        restoreFlag(); //restore flags if flagged
+    } else{
+        setText(label);
+        setStyleSheet(boxStyle("wheat"));
+        opened=true;
+        opencnt++;
+        restoreFlag(); //restore flags if flagged
+        emit frefresh(); //refresh status
 
-        }
     }
 }
 

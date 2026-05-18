@@ -2,6 +2,13 @@
 
 //나는 이프로그래밍 과제를 다른 사람의 부적절한 도움 없이 완수하였습니다
 
+namespace {
+std::default_random_engine randomEngine()
+{
+    const auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+    return std::default_random_engine(static_cast<unsigned>(seed));
+}
+}
 
 Pan::Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent):
     QWidget(parent)
@@ -29,6 +36,10 @@ Pan::Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent):
 
     glay->setHorizontalSpacing(2);
     glay->setVerticalSpacing(2);
+    for(int j=0;j<x;j++)
+        glay->setColumnStretch(j,1); //equal column width
+    for(int i=0;i<y;i++)
+        glay->setRowStretch(i,1); //equal row height
 
     bts = new MyButton* [y];
     for (int i = 0; i < y; i++)
@@ -36,8 +47,6 @@ Pan::Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent):
 
     for(int i=0;i<y;i++){
         for(int j=0;j<x;j++){
-            glay->setColumnStretch(j,1); //equal column width
-            glay->setRowStretch(i,1); //equal row height
             bts[i][j].setMinimumSize(30,30);
             QSizePolicy temp = bts[i][j].sizePolicy();
             temp.setVerticalPolicy(temp.horizontalPolicy());
@@ -55,16 +64,17 @@ Pan::Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent):
     }
 
     std::vector<std::pair<int,int>> foo; //random mine algorithm begin
+    foo.reserve(x * y);
     for(int i=0;i<y;++i){
         for(int j=0;j<x;++j){
             foo.push_back(std::make_pair(i,j));
         }
     } //button position list vector
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    std::shuffle(foo.begin(), foo.end(), std::default_random_engine(seed)); //first some element become mine
-        for(int p=0;p<mines;++p){
-            bts[foo.at(p).first][foo.at(p).second].type=-1;
-            bts[foo.at(p).first][foo.at(p).second].label="!";
+    auto engine = randomEngine();
+    std::shuffle(foo.begin(), foo.end(), engine); //first some element become mine
+    for(int p=0;p<mines;++p){
+        bts[foo[p].first][foo[p].second].type=-1;
+        bts[foo[p].first][foo[p].second].label="!";
 
     }
     refreshNumbers();
@@ -77,41 +87,38 @@ Pan::~Pan(){
     delete glay;
 }
 
+bool Pan::isInside(int cx, int cy) const
+{
+    return cx >= 0 && cx < x && cy >= 0 && cy < y;
+}
+
+int Pan::countAdjacentMines(int cx, int cy) const
+{
+    int sum=0;
+    for(int dy=-1;dy<=1;dy++){
+        for(int dx=-1;dx<=1;dx++){
+            if(dx==0 && dy==0)
+                continue;
+
+            const int nx=cx+dx;
+            const int ny=cy+dy;
+            if(isInside(nx,ny) && bts[ny][nx].type==-1)
+                ++sum;
+        }
+    }
+    return sum;
+}
+
 void Pan::refreshNumbers()
 {
     for(int i=0;i<y;i++){
         for(int j=0;j<x;j++){
-        int sum=0;
-        if(bts[i][j].type!=-1){
-            if(i-1>-1 && j-1>-1){
-                if(bts[i-1][j-1].type==-1) ++sum;
+            if(bts[i][j].type!=-1){
+                const int sum=countAdjacentMines(j,i);
+                bts[i][j].type=sum; bts[i][j].label=QString::number(sum); //surrounding(8) mine count inject
             }
-            if(i-1>-1){
-                if(bts[i-1][j].type==-1) ++sum;
-            }
-            if(i-1>-1 && j+1<x) {
-                if(bts[i-1][j+1].type==-1) ++sum;
-            }
-            if(j-1>-1){
-                if(bts[i][j-1].type==-1) ++sum;
-            }
-            if(j+1<x) {
-                if(bts[i][j+1].type==-1) ++sum;
-            }
-
-            if(i+1<y && j-1>-1) {
-                if(bts[i+1][j-1].type==-1) ++sum;
-            }
-            if(i+1<y) {
-                if(bts[i+1][j].type==-1) ++sum;
-            }
-            if(i+1<y && j+1<x) {
-                if(bts[i+1][j+1].type==-1) ++sum;
-            }
-            bts[i][j].type=sum; bts[i][j].label=QString::number(sum); //surrounding(8) mine count inject
         }
     }
-}
 }
 
 void Pan::frefresh_slot(){ //refresh
@@ -147,6 +154,7 @@ void Pan::first_click_slot(int cx,int cy)
         return;
 
     std::vector<std::pair<int,int>> spots;
+    spots.reserve(x * y - mines);
     for(int i=0;i<y;i++){
         for(int j=0;j<x;j++){
             if(!(i==cy && j==cx) && bts[i][j].type!=-1)
@@ -154,11 +162,11 @@ void Pan::first_click_slot(int cx,int cy)
         }
     }
 
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    std::shuffle(spots.begin(), spots.end(), std::default_random_engine(seed));
-
-    int ny=spots.at(0).first;
-    int nx=spots.at(0).second;
+    auto engine = randomEngine();
+    std::uniform_int_distribution<std::size_t> distribution(0, spots.size()-1);
+    const auto& spot=spots[distribution(engine)];
+    int ny=spot.first;
+    int nx=spot.second;
     bts[cy][cx].type=0;
     bts[cy][cx].label="0";
     bts[ny][nx].type=-1;
@@ -167,30 +175,16 @@ void Pan::first_click_slot(int cx,int cy)
 }
 
 void Pan::open_slot(int cx,int cy){ //check and open surrounding 8 blocks
-    if(cy-1>-1 && cx-1>-1){
-        bts[cy-1][cx-1].open();
-    }
-    if(cy-1>-1){
-        bts[cy-1][cx].open();
-    }
-    if(cy-1>-1 && cx+1<x) {
-        bts[cy-1][cx+1].open();
-    }
-    if(cx-1>-1){
-        bts[cy][cx-1].open();
-    }
-    if(cx+1<x) {
-        bts[cy][cx+1].open();
-    }
+    for(int dy=-1;dy<=1;dy++){
+        for(int dx=-1;dx<=1;dx++){
+            if(dx==0 && dy==0)
+                continue;
 
-    if(cy+1<y && cx-1>-1) {
-        bts[cy+1][cx-1].open();
-    }
-    if(cy+1<y) {
-        bts[cy+1][cx].open();
-    }
-    if(cy+1<y && cx+1<x) {
-        bts[cy+1][cx+1].open();
+            const int nx=cx+dx;
+            const int ny=cy+dy;
+            if(isInside(nx,ny))
+                bts[ny][nx].open();
+        }
     }
 
 }

@@ -29,6 +29,8 @@ private:
     //int opens;
     QLabel* flagw; //flag widget
     Timego* timer;
+    bool isInside(int cx, int cy) const;
+    int countAdjacentMines(int cx, int cy) const;
     void refreshNumbers();
 public:
     Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent=nullptr);

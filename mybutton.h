@@ -14,8 +14,9 @@ class MyButton: public QPushButton
  Q_OBJECT
 
 private:
-    int flagon=0;
-    int opened=0;
+    bool flagon=false;
+    bool opened=false;
+    void restoreFlag();
 
 public:
     static int flags; //remaining flags

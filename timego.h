@@ -19,7 +19,7 @@ public:
     Timego(QWidget* para = nullptr):QLabel(para){
         connect(&timer,SIGNAL(timeout()),this,SLOT(up()));
     }
-    bool running;
+    bool running=false;
 public slots:
     void gogo();
     void zero();
