@@ -92,6 +92,13 @@ bool Pan::isInside(int cx, int cy) const
     return cx >= 0 && cx < x && cy >= 0 && cy < y;
 }
 
+bool Pan::isFirstClickSafeZone(int targetX, int targetY, int clickX, int clickY) const
+{
+    const int safeRadius=2;
+    return targetX >= clickX-safeRadius && targetX <= clickX+safeRadius
+        && targetY >= clickY-safeRadius && targetY <= clickY+safeRadius;
+}
+
 int Pan::countAdjacentMines(int cx, int cy) const
 {
     int sum=0;
@@ -107,6 +114,43 @@ int Pan::countAdjacentMines(int cx, int cy) const
         }
     }
     return sum;
+}
+
+void Pan::prepareFirstClickArea(int cx, int cy)
+{
+    std::vector<std::pair<int,int>> minesToMove;
+    std::vector<std::pair<int,int>> emptyTargets;
+    minesToMove.reserve(25);
+    emptyTargets.reserve(x * y);
+
+    for(int i=0;i<y;i++){
+        for(int j=0;j<x;j++){
+            if(isFirstClickSafeZone(j,i,cx,cy)){
+                if(bts[i][j].type==-1)
+                    minesToMove.push_back(std::make_pair(i,j));
+            } else if(bts[i][j].type!=-1){
+                emptyTargets.push_back(std::make_pair(i,j));
+            }
+        }
+    }
+
+    if(minesToMove.empty())
+        return;
+
+    auto engine = randomEngine();
+    std::shuffle(emptyTargets.begin(), emptyTargets.end(), engine);
+
+    for(std::size_t p=0;p<minesToMove.size();p++){
+        const int mineY=minesToMove[p].first;
+        const int mineX=minesToMove[p].second;
+        const int targetY=emptyTargets[p].first;
+        const int targetX=emptyTargets[p].second;
+
+        bts[mineY][mineX].type=0;
+        bts[mineY][mineX].label="0";
+        bts[targetY][targetX].type=-1;
+        bts[targetY][targetX].label="!";
+    }
 }
 
 void Pan::refreshNumbers()
@@ -150,27 +194,10 @@ void Pan::lost_slot(){
 
 void Pan::first_click_slot(int cx,int cy)
 {
-    if(MyButton::opencnt != 0 || bts[cy][cx].type != -1)
+    if(MyButton::opencnt != 0)
         return;
 
-    std::vector<std::pair<int,int>> spots;
-    spots.reserve(x * y - mines);
-    for(int i=0;i<y;i++){
-        for(int j=0;j<x;j++){
-            if(!(i==cy && j==cx) && bts[i][j].type!=-1)
-                spots.push_back(std::make_pair(i,j));
-        }
-    }
-
-    auto engine = randomEngine();
-    std::uniform_int_distribution<std::size_t> distribution(0, spots.size()-1);
-    const auto& spot=spots[distribution(engine)];
-    int ny=spot.first;
-    int nx=spot.second;
-    bts[cy][cx].type=0;
-    bts[cy][cx].label="0";
-    bts[ny][nx].type=-1;
-    bts[ny][nx].label="!";
+    prepareFirstClickArea(cx,cy);
     refreshNumbers();
 }
 

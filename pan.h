@@ -30,7 +30,9 @@ private:
     QLabel* flagw; //flag widget
     Timego* timer;
     bool isInside(int cx, int cy) const;
+    bool isFirstClickSafeZone(int targetX, int targetY, int clickX, int clickY) const;
     int countAdjacentMines(int cx, int cy) const;
+    void prepareFirstClickArea(int cx, int cy);
     void refreshNumbers();
 public:
     Pan(int n, QLabel* _flagcnt,Timego* time, QWidget *parent=nullptr);
